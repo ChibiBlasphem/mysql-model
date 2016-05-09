@@ -9,7 +9,7 @@ let __ = new WeakMap(),
 
 const DEFAULT_FIELD_CONFIGURATION = {required: true};
 
-const TYPES_NAMES = ['integer', 'string', 'datetime'];
+const TYPES_NAMES = ['integer', 'string', 'datetime', 'boolean'];
 const TYPES_VALIDATORS = {
     integer(field, next, stop) {
         if (!field.config.required && typeof field.data === 'undefined') {
@@ -40,6 +40,16 @@ const TYPES_VALIDATORS = {
             return stop(new SchemaError(`Expected "${field.config.name}" field to be "Date Object"`));
         }
         next();
+    },
+    boolean(field, next, stop) {
+        if (!field.config.required && typeof field.data === 'undefined') {
+            return stop();
+        }
+
+        if (typeof field.data !== 'number' || field.data < 0 || field.data > 1) {
+            return stop(new SchemaError(`Expected "${field.config.name}" field to be 0 or 1`));
+        }
+        next();
     }
 };
 
@@ -62,6 +72,13 @@ class Schema {
 
             this.validators[name].add(TYPES_VALIDATORS[property.type]);
         }
+
+        let self;
+        return new Proxy(this, {
+            has: (target, key) => {
+                return typeof _(this).properties[key] != 'undefined';
+            }
+        });
     }
 
     validate(data, done) {

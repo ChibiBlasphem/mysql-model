@@ -1,5 +1,5 @@
 {
-  "name": "mysql-model",
+  "name": "@chibikookie/mysql-model",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -11,5 +11,8 @@
   "dependencies": {
     "mysql2": "^1.0.0-rc.1",
     "pluralize": "^1.2.1"
+  },
+  "devDependencies": {
+    "chai": "^3.5.0"
   }
 }

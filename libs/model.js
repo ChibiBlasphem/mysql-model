@@ -63,8 +63,15 @@ class QueryBuilder {
                 this.orderBy(s, true);
             });
         }
-        
+
         return this;
+    }
+
+    selectOne(fields = '*') {
+        return this.limit(1).select()
+            .then((_o) => {
+                return _o.length ? _o[0] : undefined;
+            });
     }
 
     select(fields = '*') {
@@ -126,9 +133,6 @@ class QueryBuilder {
     }
 
     insert(obj) {
-        // obj.dateCreated = new Date();
-        // obj.dateUpdated = new Date();
-
         let q = `INSERT INTO ${_(this).from}(${Object.keys(obj).join(', ')}) VALUES(${Object.keys(obj).map(p=>`:${p}`).join(', ')})`;
 
         return new Promise((resolve, reject) => {
@@ -139,15 +143,18 @@ class QueryBuilder {
                     return reject(err);
                 }
 
-                obj.id = res.insertId;
-                _(obj).hasBeenSaved = true;
-                resolve(obj);
+                obj.constructor.where('id', res.insertId)
+                    .selectOne()
+                    .then((_o) => {
+                        resolve(_o);
+                    })
+                    .catch(reject);
             });
         });
     }
 }
 
-module.exports = class BaseModel {
+class BaseModel {
     static get table() { return pluralize(this.name.toLowerCase()); }
 
     // Static method to initialize an object from the model
@@ -184,11 +191,35 @@ module.exports = class BaseModel {
     }
 
     constructor(data) {
+        _(this).properties = {};
+
         if (data != undefined) {
             for (let prop in data) {
                 this[prop] = data[prop];
             }
         }
+
+        let proxy = new Proxy(this, {
+            get(target, key) {
+                if (target[key] || key in target.schema) {
+                    return target[key];
+                } else if (typeof _(target).properties[key] != 'undefined') {
+                    return _(target).properties[key];
+                } else {
+                    return undefined;
+                }
+            },
+            set(target, key, value) {
+                if (key in target.schema) {
+                    target[key] = value;
+                } else {
+                    _(target).properties[key] = value;
+                }
+                return true;
+            }
+        });
+
+        return proxy;
     }
 
     save() {
@@ -214,3 +245,5 @@ module.exports = class BaseModel {
 
     get isNewRecord() { return !_(this).hasBeenSaved; }
 };
+
+module.exports = BaseModel;
