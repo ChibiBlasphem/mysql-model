@@ -1,9 +1,9 @@
 'use strict';
 var pluralize    = require('pluralize'),
-    map          = new WeakMap(),
+    __           = new WeakMap(),
     _            = function(o) {
-        if (!map.has(o)) map.set(o, {});
-        return map.get(o);
+        if (!__.has(o)) __.set(o, {});
+        return __.get(o);
     },
     shortid = require('./shortid'),
     mysql2  = require('mysql2');
@@ -117,10 +117,11 @@ class QueryBuilder {
     }
 
     update(obj) {
-        let q = `UPDATE ${_(this).from} SET ${Object.keys(obj).filter(k=>k!='id').map(k=>`${k}=:${k}`).join(', ')} WHERE id = :id`;
+        let data = obj.toJSON();
+        let q = `UPDATE ${_(this).from} SET ${Object.keys(data).filter(k=>k!='id').map(k=>`${k}=:${k}`).join(', ')} WHERE id = :id`;
 
         return new Promise((resolve, reject) => {
-            this.client.execute(q, obj, (err, res) => {
+            this.client.execute(q, data, (err, res) => {
                 this.client.end();
 
                 if (err) {
@@ -133,10 +134,11 @@ class QueryBuilder {
     }
 
     insert(obj) {
-        let q = `INSERT INTO ${_(this).from}(${Object.keys(obj).join(', ')}) VALUES(${Object.keys(obj).map(p=>`:${p}`).join(', ')})`;
+        let data = obj.toJSON();
+        let q = `INSERT INTO ${_(this).from}(${Object.keys(data).join(', ')}) VALUES(${Object.keys(data).map(p=>`:${p}`).join(', ')})`;
 
         return new Promise((resolve, reject) => {
-            this.client.execute(q, obj, (err, res) => {
+            this.client.execute(q, data, (err, res) => {
                 this.client.end();
 
                 if (err) {
@@ -157,12 +159,11 @@ class QueryBuilder {
 class BaseModel {
     static get table() { return pluralize(this.name.toLowerCase()); }
 
-    // Static method to initialize an object from the model
+    // Class methods
     static new() {
         return new this();
     }
 
-    // Static method to initialize, feed & save an object from the model
     static create(data = {}) {
         return (new this(data)).save();
     }
@@ -190,36 +191,13 @@ class BaseModel {
             Promise.resolve();
     }
 
+    // Instance methods
     constructor(data) {
-        _(this).properties = {};
-
         if (data != undefined) {
             for (let prop in data) {
                 this[prop] = data[prop];
             }
         }
-
-        let proxy = new Proxy(this, {
-            get(target, key) {
-                if (target[key] || key in target.schema) {
-                    return target[key];
-                } else if (typeof _(target).properties[key] != 'undefined') {
-                    return _(target).properties[key];
-                } else {
-                    return undefined;
-                }
-            },
-            set(target, key, value) {
-                if (key in target.schema) {
-                    target[key] = value;
-                } else {
-                    _(target).properties[key] = value;
-                }
-                return true;
-            }
-        });
-
-        return proxy;
     }
 
     save() {
@@ -231,7 +209,7 @@ class BaseModel {
 
                 let savePromise = (!this.isNewRecord ? this.constructor.update(this) : this.constructor.insert(this))
                     .then((_o) => {
-                        _(this).hasBeenSaved = true;
+                        _(_o).hasBeenSaved = true;
                         return _o;
                     });
                 resolve(savePromise);
@@ -241,6 +219,19 @@ class BaseModel {
 
     destroy() {
         return this.constructor.destroy(this);
+    }
+
+    toJSON() {
+        let props = Object.keys(this.schema.properties), data = {};
+        props.forEach((p) => {
+            if (typeof this[p] == 'undefined') {
+                return;
+            }
+
+            data[p] = this[p];
+        });
+
+        return data;
     }
 
     get isNewRecord() { return !_(this).hasBeenSaved; }

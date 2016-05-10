@@ -47,7 +47,7 @@ const TYPES_VALIDATORS = {
         }
 
         if (typeof field.data !== 'number' || field.data < 0 || field.data > 1) {
-            return stop(new SchemaError(`Expected "${field.config.name}" field to be 0 or 1`));
+            return stop(new SchemaError(`Expected "${field.config.name}" field to be 0 or 1 (value: ${field.data})`));
         }
         next();
     }
@@ -72,13 +72,6 @@ class Schema {
 
             this.validators[name].add(TYPES_VALIDATORS[property.type]);
         }
-
-        let self;
-        return new Proxy(this, {
-            has: (target, key) => {
-                return typeof _(this).properties[key] != 'undefined';
-            }
-        });
     }
 
     validate(data, done) {
@@ -95,8 +88,16 @@ class Schema {
         parallelizer.start(done);
     }
 
+    has(key) {
+        return typeof _(this).properties[key] != 'undefined';
+    }
+
     get validators() {
         return _(this).validators;
+    }
+
+    get properties() {
+        return _(this).properties;
     }
 
     toJSON() {

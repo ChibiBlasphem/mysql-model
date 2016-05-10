@@ -22,15 +22,13 @@ describe('Empty test', () => {
     let test;
 
     it('should save in database', (done) => {
-        let pr = Test.create({});
-        console.log(pr);
-
-        pr.then((_t) => {
-            test = _t;
-            expect(test).to.be.an.instanceOf(Test);
-            done()
-        })
-        .catch(done);
+        Test.create({})
+            .then((_t) => {
+                test = _t;
+                expect(test).to.be.an.instanceOf(Test);
+                done()
+            })
+            .catch(done);
     });
 
     it('should have an id property which is an integer', () => {
